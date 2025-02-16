@@ -4,64 +4,97 @@ using Microsoft.Extensions.Logging;
 using Parquet.Meta;
 using System.Text.Json;
 
-namespace FileTransferService.Infrastructure.Services;
-
-public class LocalFileStorageService : IFileStorageService
+namespace FileTransferService.Infrastructure.Services
 {
-    private readonly string _storageRoot;
-    private readonly ILogger<LocalFileStorageService> _logger;
-
-    public LocalFileStorageService(IConfiguration configuration, ILogger<LocalFileStorageService> logger)
+    public class LocalFileStorageService : LocalFileStorageServiceBase, IFileStorageService
     {
-        _storageRoot = configuration["Storage:LocalPath"]
-            ?? Path.Combine(Path.GetTempPath(), "FileTransferService");
-        _logger = logger;
+        public LocalFileStorageService(IConfiguration configuration, ILogger<LocalFileStorageService> logger)
+            : base(configuration["Storage:LocalPath"] ?? Path.Combine(Path.GetTempPath(), "FileTransferService"), logger)
+        {
+            Directory.CreateDirectory(_storageRoot);
+        }
 
-        Directory.CreateDirectory(_storageRoot);
-    }
+        /// <summary>
+        /// Salva um arquivo usando um Stream.
+        /// </summary>
+        public async Task<string> SaveFileAsync(string fileName, Stream content, CancellationToken cancellationToken = default)
+        {
+            var filePath = Path.Combine(_storageRoot, fileName);
+            _logger.LogInformation($"Salvando arquivo em: {filePath}");
 
-    public async Task<string> SaveFileAsync(string fileName, Stream content, CancellationToken cancellationToken)
-    {
-        var fileId = Guid.NewGuid().ToString();
-        var filePath = GetFilePath(fileId);
-
-        using var fileStream = File.Create(filePath);
-        await content.CopyToAsync(fileStream, cancellationToken);
-
-        await File.WriteAllTextAsync(
-            GetMetadataPath(fileId),
-            JsonSerializer.Serialize(new FileMetaData
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, true))
             {
-                //FileName = fileName,
-                //CreatedAt = DateTime.UtcNow
-            }),
-            cancellationToken);
+                await content.CopyToAsync(fileStream, cancellationToken);
+            }
 
-        return fileId;
-    }
+            return fileName;
+        }
 
-    public Task<Stream> GetFileAsync(string fileId, CancellationToken cancellationToken)
-    {
-        var filePath = GetFilePath(fileId);
-        if (!File.Exists(filePath))
-            throw new FileNotFoundException($"File with id {fileId} not found");
+        /// <summary>
+        /// Salva um arquivo a partir de um array de bytes.
+        /// </summary>
+        public async Task<string> SaveFileAsync(string fileName, byte[] bytes, CancellationToken cancellationToken = default)
+        {
+            var filePath = Path.Combine(_storageRoot, fileName);
+            _logger.LogInformation($"Salvando arquivo em: {filePath}");
 
-        return Task.FromResult<Stream>(File.OpenRead(filePath));
-    }
+            await File.WriteAllBytesAsync(filePath, bytes, cancellationToken);
+            return fileName;
+        }
 
-    private string GetFilePath(string fileId) =>
-        Path.Combine(_storageRoot, $"{fileId}.dat");
+        /// <summary>
+        /// Obtém um arquivo e retorna um Stream.
+        /// </summary>
+        public async Task<Stream> GetFileAsync(string fileId, CancellationToken cancellationToken = default)
+        {
+            var filePath = Path.Combine(_storageRoot, fileId);
 
-    private string GetMetadataPath(string fileId) =>
-        Path.Combine(_storageRoot, $"{fileId}.meta.json");
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning($"Arquivo não encontrado: {filePath}");
+                throw new FileNotFoundException("Arquivo não encontrado", fileId);
+            }
 
-    public Task<IEnumerable<FileInfo>> ListFilesAsync(string folderPath, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
-    }
+            return new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, true);
+        }
 
-    public Task DeleteFileAsync(string fileId, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException();
+        /// <summary>
+        /// Lista arquivos em um diretório.
+        /// </summary>
+        public async Task<IEnumerable<FileInfo>> ListFilesAsync(string folderPath, CancellationToken cancellationToken = default)
+        {
+            var directoryPath = Path.Combine(_storageRoot, folderPath);
+            if (!Directory.Exists(directoryPath))
+            {
+                return Enumerable.Empty<FileInfo>();
+            }
+
+            return await Task.Run(() =>
+            {
+                return new DirectoryInfo(directoryPath)
+                    .GetFiles()
+                    .Select(f => new FileInfo(f.FullName))
+                    .ToList();
+            }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Deleta um arquivo pelo ID.
+        /// </summary>
+        public async Task DeleteFileAsync(string fileId, CancellationToken cancellationToken = default)
+        {
+            var filePath = Path.Combine(_storageRoot, fileId);
+
+            if (!File.Exists(filePath))
+            {
+                _logger.LogWarning($"Tentativa de deletar arquivo inexistente: {filePath}");
+                return;
+            }
+
+            await Task.Run(() => File.Delete(filePath), cancellationToken);
+            _logger.LogInformation($"Arquivo deletado: {filePath}");
+        }
     }
 }
+
+

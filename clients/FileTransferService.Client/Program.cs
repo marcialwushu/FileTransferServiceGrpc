@@ -1,13 +1,18 @@
 ﻿using Grpc.Net.Client;
 
-namespace FileTransferService.Client;
-
-class Program
+namespace FileTransferService.Client 
 {
-    static async Task Main(string[] args)
+    class Program
     {
-        
+        static void Main(string[] args)
+        {
+
+        }
+
+
     }
 
-    
 }
+
+
+

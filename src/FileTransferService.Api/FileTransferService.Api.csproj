@@ -7,17 +7,21 @@
     <SqlQueryToolsConnectionString />
   </PropertyGroup>
 
+	<ItemGroup>
+		<Protobuf Include="Protos/file_transfer.proto" GrpcServices="Server" />
+	</ItemGroup>	
+
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.29.3" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.69.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\FileTransferService.Core\FileTransferService.Core.csproj" />
     <ProjectReference Include="..\FileTransferService.Infrastructure\FileTransferService.Infrastructure.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>

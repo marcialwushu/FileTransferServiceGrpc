@@ -13,7 +13,7 @@ builder.Services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
 var app = builder.Build();
 
-//app.MapGrpcService<FileTransferService>();
+app.MapGrpcService<FileTransferService.Api.Services.FileTransferService>();
 app.MapGet("/", () => "gRPC File Transfer Service");
 
 app.Run();
