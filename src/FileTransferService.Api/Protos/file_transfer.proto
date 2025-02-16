@@ -1,0 +1,57 @@
+﻿syntax = "proto3";
+
+option csharp_namespace = "FileTransferService.Api";
+
+package filetransfer;
+
+service FileTransfer {
+  rpc UploadFile (stream UploadFileRequest) returns (UploadFileResponse);
+  rpc DownloadFile (DownloadFileRequest) returns (stream DownloadFileResponse);
+  rpc ListFiles (ListFilesRequest) returns (ListFilesResponse);
+}
+
+message UploadFileRequest {
+  oneof data {
+    FileMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message FileMetadata {
+  string filename = 1;
+  string content_type = 2;
+  int64 file_size = 3;
+}
+
+message UploadFileResponse {
+  string file_id = 1;
+  string filename = 2;
+  int64 size = 3;
+}
+
+message DownloadFileRequest {
+  string file_id = 1;
+}
+
+message DownloadFileResponse {
+  oneof data {
+    FileMetadata metadata = 1;
+    bytes chunk = 2;
+  }
+}
+
+message ListFilesRequest {
+  string folder_path = 1;
+}
+
+message ListFilesResponse {
+  repeated FileInfo files = 1;
+}
+
+message FileInfo {
+  string file_id = 1;
+  string filename = 2;
+  int64 size = 3;
+  string content_type = 4;
+  string created_at = 5;
+}
